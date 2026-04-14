@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>健康管理</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+  :root {
+    --green: #1D9E75;
+    --green-light: #E1F5EE;
+    --green-dark: #0F6E56;
+    --amber: #EF9F27;
+    --amber-light: #FAEEDA;
+    --red: #E24B4A;
+    --red-light: #FCEBEB;
+    --blue: #378ADD;
+    --blue-light: #E6F1FB;
+    --bg: #f4f4f0;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --text2: #666;
+    --text3: #aaa;
+    --border: #e8e8e0;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── AUTH PAGE ── */
+  #auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .auth-card {
+    background: var(--card);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 400px;
+  }
+  .auth-logo {
+    width: 44px; height: 44px;
+    background: var(--green);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+  }
+  .auth-logo svg { width: 24px; height: 24px; }
+  .auth-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .auth-sub { font-size: 14px; color: var(--text2); margin-bottom: 28px; }
+  .auth-tabs { display: flex; gap: 4px; background: var(--bg); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 24px; }
+  .auth-tab { flex: 1; padding: 8px; border-radius: 6px; border: none; background: transparent; font-size: 14px; color: var(--text2); cursor: pointer; font-family: inherit; transition: all .2s; }
+  .auth-tab.active { background: var(--card); color: var(--text); font-weight: 500; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+  .field input { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; color: var(--text); background: var(--card); outline: none; font-family: inherit; transition: border .2s; }
+  .field input:focus { border-color: var(--green); }
+  .btn-primary { width: 100%; padding: 12px; background: var(--green); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; font-family: inherit; transition: background .2s; }
+  .btn-primary:hover { background: var(--green-dark); }
+  .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+  .auth-msg { font-size: 13px; text-align: center; margin-top: 14px; padding: 10px; border-radius: var(--radius-sm); display: none; }
+  .auth-msg.error { background: var(--red-light); color: var(--red); display: block; }
+  .auth-msg.success { background: var(--green-light); color: var(--green-dark); display: block; }
+
+  /* ── APP SHELL ── */
+  #app { display: none; max-width: 480px; margin: 0 auto; padding: 0 0 80px; min-height: 100vh; }
+
+  /* ── TOP BAR ── */
+  .topbar { padding: 20px 18px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-left .greeting { font-size: 18px; font-weight: 700; }
+  .topbar-left .date { font-size: 13px; color: var(--text2); margin-top: 2px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--green-dark); cursor: pointer; }
+
+  /* ── CARDS ── */
+  .section { padding: 0 14px; margin-bottom: 18px; }
+  .section-label { font-size: 12px; color: var(--text3); margin-bottom: 10px; letter-spacing: .05em; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .card-title { font-size: 14px; font-weight: 500; margin-bottom: 14px; }
+
+  /* ── METRIC GRID ── */
+  .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .metric-label { font-size: 12px; color: var(--text2); margin-bottom: 5px; }
+  .metric-val { font-size: 24px; font-weight: 700; line-height: 1; }
+  .metric-unit { font-size: 12px; color: var(--text3); margin-left: 2px; font-weight: 400; }
+  .metric-status { font-size: 11px; margin-top: 5px; }
+  .ok { color: var(--green-dark); }
+  .warn { color: #854F0B; }
+  .alert { color: var(--red); }
+
+  /* ── QUICK RECORD ── */
+  .quick-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .quick-btn { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 10px; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 8px; transition: background .15s; font-family: inherit; }
+  .quick-btn:active { background: var(--bg); }
+  .quick-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+  .quick-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .quick-sub { font-size: 11px; color: var(--text3); }
+
+  /* ── MED LIST ── */
+  .med-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); background: var(--bg); margin-bottom: 7px; }
+  .med-item:last-child { margin-bottom: 0; }
+  .med-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .med-name { font-size: 13px; flex: 1; }
+  .med-time { font-size: 12px; color: var(--text3); }
+  .badge { font-size: 11px; padding: 2px 9px; border-radius: 20px; }
+  .b-ok { background: var(--green-light); color: var(--green-dark); }
+  .b-warn { background: var(--amber-light); color: #633806; }
+  .b-miss { background: var(--red-light); color: var(--red); }
+
+  /* ── ACTIVITY ── */
+  .act-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .act-item:last-child { border-bottom: none; }
+  .act-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .act-text { font-size: 13px; color: var(--text); line-height: 1.4; }
+  .act-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--card); border-top: 1px solid var(--border); display: flex; padding: 8px 10px 16px; gap: 4px; z-index: 100; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 4px; border-radius: 10px; cursor: pointer; border: none; background: transparent; font-family: inherit; transition: background .15s; }
+  .nav-item:hover { background: var(--bg); }
+  .nav-item.active { background: var(--green-light); }
+  .nav-item span { font-size: 11px; color: var(--text3); }
+  .nav-item.active span { color: var(--green); font-weight: 500; }
+  .nav-item svg { width: 20px; height: 20px; }
+
+  /* ── MODULE PAGES ── */
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-hdr { display: flex; align-items: center; gap: 12px; padding: 20px 18px 14px; }
+  .back-btn { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: var(--card); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .page-title { font-size: 18px; font-weight: 700; }
+  .add-fab { margin-left: auto; padding: 8px 16px; border-radius: var(--radius-sm); border: none; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; }
+
+  /* ── RECORDS LIST ── */
+  .rec-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg); border-radius: var(--radius-sm); margin-bottom: 8px; cursor: pointer; }
+  .rec-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .rec-main { flex: 1; }
+  .rec-name { font-size: 13px; font-weight: 500; }
+  .rec-detail { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .rec-right { text-align: right; }
+  .rec-val { font-size: 13px; font-weight: 500; }
+  .rec-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 14px; }
+
+  /* ── MODAL ── */
+  .modal-wrap { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; align-items: flex-end; justify-content: center; }
+  .modal-wrap.show { display: flex; }
+  .modal { background: var(--card); border-radius: 20px 20px 0 0; padding: 24px 20px 36px; width: 100%; max-width: 480px; }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+  .modal .field { margin-bottom: 14px; }
+  .type-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .type-btn { padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); font-size: 13px; color: var(--text2); cursor: pointer; font-family: inherit; transition: all .15s; }
+  .type-btn.sel { border-color: var(--green); background: var(--green-light); color: var(--green-dark); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-cancel { padding: 11px 20px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); font-size: 14px; color: var(--text2); cursor: pointer; font-family: inherit; }
+  .btn-save { flex: 1; padding: 11px; border-radius: var(--radius-sm); border: none; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── PROFILE PAGE ── */
+  .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; color: var(--green-dark); margin: 0 auto 12px; }
+  .profile-name { text-align: center; font-size: 18px; font-weight: 700; }
+  .profile-email { text-align: center; font-size: 13px; color: var(--text2); margin-top: 4px; margin-bottom: 28px; }
+  .setting-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border); font-size: 14px; cursor: pointer; }
+  .setting-item:last-child { border-bottom: none; }
+  .btn-logout { width: 100%; padding: 12px; background: var(--red-light); color: var(--red); border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; margin-top: 24px; }
+
+  /* ── TOAST ── */
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; font-size: 13px; padding: 10px 20px; border-radius: 20px; white-space: nowrap; z-index: 300; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  /* ── LOADING ── */
+  #loading { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 999; }
+  .loading-logo { width: 56px; height: 56px; background: var(--green); border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="loading-logo">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M3 12l3-4 3 6 3-8 3 5 2-2"/></svg>
+  </div>
+</div>
+
+<!-- AUTH PAGE -->
+<div id="auth-page" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M3 12l3-4 3 6 3-8 3 5 2-2"/></svg>
+    </div>
+    <div class="auth-title">健康管理</div>
+    <div class="auth-sub">记录每天，守护健康</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">登录</button>
+      <button class="auth-tab" onclick="switchTab('register')">注册</button>
+    </div>
+    <div id="login-form">
+      <div class="field"><label>邮箱</label><input type="email" id="login-email" placeholder="your@email.com"></div>
+      <div class="field"><label>密码</label><input type="password" id="login-pwd" placeholder="••••••••"></div>
+      <button class="btn-primary" onclick="login()">登录</button>
+    </div>
+    <div id="register-form" style="display:none">
+      <div class="field"><label>昵称</label><input type="text" id="reg-name" placeholder="你的名字"></div>
+      <div class="field"><label>邮箱</label><input type="email" id="reg-email" placeholder="your@email.com"></div>
+      <div class="field"><label>密码（至少6位）</label><input type="password" id="reg-pwd" placeholder="••••••••"></div>
+      <button class="btn-primary" onclick="register()">注册账号</button>
+    </div>
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- HOME PAGE -->
+  <div class="page active" id="page-home">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="greeting" id="greeting">你好</div>
+        <div class="date" id="today-date"></div>
+      </div>
+      <div class="avatar" id="avatar-btn" onclick="goPage('profile')">我</div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">今日健康概览</div>
+      <div class="metric-grid" id="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">血压</div>
+          <div><span class="metric-val" id="m-bp">--</span><span class="metric-unit">mmHg</span></div>
+          <div class="metric-status" id="m-bp-s">暂无记录</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">血糖</div>
+          <div><span class="metric-val" id="m-sugar">--</span><span class="metric-unit">mmol/L</span></div>
+          <div class="metric-status" id="m-sugar-s">暂无记录</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">今日运动</div>
+          <div><span class="metric-val" id="m-ex">0</span><span class="metric-unit">次</span></div>
+          <div class="metric-status warn" id="m-ex-s">继续加油</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">今日饮食</div>
+          <div><span class="metric-val" id="m-cal">0</span><span class="metric-unit">千卡</span></div>
+          <div class="metric-status" id="m-cal-s" style="color:var(--text3)">暂无记录</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">快速记录</div>
+      <div class="quick-grid">
+        <button class="quick-btn" onclick="openModal('vitals')">
+          <div class="quick-icon" style="background:#E1F5EE"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#0F6E56" stroke-width="1.5"><path d="M2 8l2-3 2 5 2-7 2 5 2-3"/></svg></div>
+          <div class="quick-name">记录指标</div>
+          <div class="quick-sub">血压·血糖·心率</div>
+        </button>
+        <button class="quick-btn" onclick="openModal('meal')">
+          <div class="quick-icon" style="background:#EAF3DE"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#3B6D11" stroke-width="1.5"><circle cx="8" cy="9" r="5"/><path d="M5 4V2M8 3V1M11 4V2"/></svg></div>
+          <div class="quick-name">记录饮食</div>
+          <div class="quick-sub">早餐·午餐·晚餐</div>
+        </button>
+        <button class="quick-btn" onclick="openModal('exercise')">
+          <div class="quick-icon" style="background:#FAEEDA"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#854F0B" stroke-width="1.5"><path d="M3 10h2l2-4 2 6 2-4h2"/></svg></div>
+          <div class="quick-name">记录运动</div>
+          <div class="quick-sub">步行·跑步·骑行</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-title">今日用药</div>
+        <div id="home-meds"><div style="font-size:13px;color:var(--text3)">暂无用药计划，去用药模块添加</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <div class="card-title">今日动态</div>
+        <div id="home-activity"><div class="empty-state">今天还没有记录</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VITALS PAGE -->
+  <div class="page" id="page-vitals">
+    <div class="page-hdr">
+      <button class="back-btn" onclick="goPage('home')"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3L5 8l5 5"/></svg></button>
+      <div class="page-title">健康指标</div>
+      <button class="add-fab btn-primary" style="width:auto;padding:8px 16px;font-size:13px" onclick="openModal('vitals')">+ 记录</button>
+    </div>
+    <div class="section">
+      <div id="vitals-list"><div class="empty-state">暂无指标记录</div></div>
+    </div>
+  </div>
+
+  <!-- MEALS PAGE -->
+  <div class="page" id="page-meals">
+    <div class="page-hdr">
+      <button class="back-btn" onclick="goPage('home')"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3L5 8l5 5"/></svg></button>
+      <div class="page-title">饮食记录</div>
+      <button class="add-fab btn-primary" style="width:auto;padding:8px 16px;font-size:13px" onclick="openModal('meal')">+ 记录</button>
+    </div>
+    <div class="section">
+      <div id="meals-list"><div class="empty-state">暂无饮食记录</div></div>
+    </div>
+  </div>
+
+  <!-- EXERCISE PAGE -->
+  <div class="page" id="page-exercise">
+    <div class="page-hdr">
+      <button class="back-btn" onclick="goPage('home')"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3L5 8l5 5"/></svg></button>
+      <div class="page-title">运动打卡</div>
+      <button class="add-fab btn-primary" style="width:auto;padding:8px 16px;font-size:13px" onclick="openModal('exercise')">+ 记录</button>
+    </div>
+    <div class="section">
+      <div id="exercise-list"><div class="empty-state">暂无运动记录</div></div>
+    </div>
+  </div>
+
+  <!-- MEDICATIONS PAGE -->
+  <div class="page" id="page-meds">
+    <div class="page-hdr">
+      <button class="back-btn" onclick="goPage('home')"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3L5 8l5 5"/></svg></button>
+      <div class="page-title">用药提醒</div>
+      <button class="add-fab btn-primary" style="width:auto;padding:8px 16px;font-size:13px" onclick="openModal('medication')">+ 添加</button>
+    </div>
+    <div class="section">
+      <div id="meds-list"><div class="empty-state">暂无用药计划</div></div>
+    </div>
+  </div>
+
+  <!-- PROFILE PAGE -->
+  <div class="page" id="page-profile">
+    <div class="page-hdr">
+      <button class="back-btn" onclick="goPage('home')"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3L5 8l5 5"/></svg></button>
+      <div class="page-title">我的</div>
+    </div>
+    <div class="section">
+      <div class="profile-avatar" id="profile-avatar">我</div>
+      <div class="profile-name" id="profile-name">用户</div>
+      <div class="profile-email" id="profile-email"></div>
+      <div class="card">
+        <div class="setting-item">
+          <span>健康目标设置</span><span style="color:var(--text3)">›</span>
+        </div>
+        <div class="setting-item">
+          <span>通知提醒</span><span style="color:var(--text3)">›</span>
+        </div>
+        <div class="setting-item">
+          <span>数据导出</span><span style="color:var(--text3)">›</span>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">退出登录</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-home" onclick="goPage('home')">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="6" height="6" rx="2"/><rect x="11" y="3" width="6" height="6" rx="2"/><rect x="3" y="11" width="6" height="6" rx="2"/><rect x="11" y="11" width="6" height="6" rx="2"/></svg>
+      <span>首页</span>
+    </button>
+    <button class="nav-item" id="nav-vitals" onclick="goPage('vitals')">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10l2-3 3 5 3-7 3 5 2-2"/></svg>
+      <span>指标</span>
+    </button>
+    <button class="nav-item" id="nav-meals" onclick="goPage('meals')">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="11" r="6"/><path d="M7 5V3M10 4V2M13 5V3"/></svg>
+      <span>饮食</span>
+    </button>
+    <button class="nav-item" id="nav-exercise" onclick="goPage('exercise')">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12h3l2-5 3 8 2-5h3"/></svg>
+      <span>运动</span>
+    </button>
+    <button class="nav-item" id="nav-meds" onclick="goPage('meds')">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="3" width="8" height="14" rx="4"/><line x1="6" y1="10" x2="14" y2="10"/></svg>
+      <span>用药</span>
+    </button>
+  </nav>
+</div>
+
+<!-- MODALS -->
+<div class="modal-wrap" id="modal-vitals">
+  <div class="modal">
+    <div class="modal-title">记录健康指标</div>
+    <div class="two-col">
+      <div class="field"><label>收缩压 (mmHg)</label><input type="number" id="v-sys" placeholder="如 120"></div>
+      <div class="field"><label>舒张压 (mmHg)</label><input type="number" id="v-dia" placeholder="如 80"></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>心率 (bpm)</label><input type="number" id="v-hr" placeholder="如 72"></div>
+      <div class="field"><label>血糖 (mmol/L)</label><input type="number" id="v-sugar" placeholder="如 5.6" step="0.1"></div>
+    </div>
+    <div class="field"><label>体重 (kg)</label><input type="number" id="v-weight" placeholder="如 65.5" step="0.1"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('vitals')">取消</button>
+      <button class="btn-save" style="background:var(--green);color:#fff" onclick="saveVital()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="modal-meal">
+  <div class="modal">
+    <div class="modal-title">记录饮食</div>
+    <div class="field">
+      <label>餐食类型</label>
+      <div class="type-row">
+        <button class="type-btn sel" onclick="selType(this,'meal-type')">早餐</button>
+        <button class="type-btn" onclick="selType(this,'meal-type')">午餐</button>
+        <button class="type-btn" onclick="selType(this,'meal-type')">晚餐</button>
+        <button class="type-btn" onclick="selType(this,'meal-type')">加餐</button>
+      </div>
+    </div>
+    <div class="field"><label>食物描述</label><input type="text" id="meal-desc" placeholder="如：燕麦粥、鸡蛋、牛奶"></div>
+    <div class="field"><label>热量 (千卡)</label><input type="number" id="meal-cal" placeholder="如 380"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('meal')">取消</button>
+      <button class="btn-save" style="background:#3B6D11;color:#fff" onclick="saveMeal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="modal-exercise">
+  <div class="modal">
+    <div class="modal-title">记录运动</div>
+    <div class="field">
+      <label>运动类型</label>
+      <div class="type-row">
+        <button class="type-btn sel" onclick="selType(this,'ex-type')">步行</button>
+        <button class="type-btn" onclick="selType(this,'ex-type')">跑步</button>
+        <button class="type-btn" onclick="selType(this,'ex-type')">骑行</button>
+        <button class="type-btn" onclick="selType(this,'ex-type')">游泳</button>
+        <button class="type-btn" onclick="selType(this,'ex-type')">瑜伽</button>
+        <button class="type-btn" onclick="selType(this,'ex-type')">其他</button>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>时长 (分钟)</label><input type="number" id="ex-dur" placeholder="如 30"></div>
+      <div class="field"><label>消耗 (千卡)</label><input type="number" id="ex-kcal" placeholder="如 200"></div>
+    </div>
+    <div class="field"><label>距离 (km，选填)</label><input type="number" id="ex-dist" placeholder="如 3.5" step="0.1"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('exercise')">取消</button>
+      <button class="btn-save" style="background:#854F0B;color:#fff" onclick="saveExercise()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="modal-medication">
+  <div class="modal">
+    <div class="modal-title">添加用药</div>
+    <div class="field"><label>药物名称</label><input type="text" id="med-name" placeholder="如 降压药"></div>
+    <div class="two-col">
+      <div class="field"><label>剂量</label><input type="text" id="med-dose" placeholder="如 1片"></div>
+      <div class="field"><label>服药时间</label><input type="time" id="med-time" value="08:00"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('medication')">取消</button>
+      <button class="btn-save" style="background:var(--blue);color:#fff" onclick="saveMedication()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://wdjvjsxzbspgknumouyx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JDjk7v6J-qL3EvVBs3YgNg_vJaMN-4s';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let currentPage = 'home';
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    showApp();
+  } else {
+    showAuth();
+  }
+});
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    currentUser = session.user;
+    showApp();
+  } else if (event === 'SIGNED_OUT') {
+    currentUser = null;
+    showAuth();
+  }
+});
+
+function showApp() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('auth-page').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  initHome();
+}
+
+function showAuth() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('auth-page').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+// ── AUTH ──
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (tab==='login'&&i===0)||(tab==='register'&&i===1)));
+  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('auth-msg').style.display = 'none';
+}
+
+async function login() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd = document.getElementById('login-pwd').value;
+  if (!email || !pwd) return showMsg('请填写邮箱和密码', 'error');
+  const btn = event.target; btn.disabled = true; btn.textContent = '登录中...';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
+  btn.disabled = false; btn.textContent = '登录';
+  if (error) showMsg(error.message.includes('Invalid') ? '邮箱或密码错误' : error.message, 'error');
+}
+
+async function register() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pwd = document.getElementById('reg-pwd').value;
+  if (!name || !email || !pwd) return showMsg('请填写所有信息', 'error');
+  if (pwd.length < 6) return showMsg('密码至少6位', 'error');
+  const btn = event.target; btn.disabled = true; btn.textContent = '注册中...';
+  const { error } = await sb.auth.signUp({ email, password: pwd, options: { data: { name } } });
+  btn.disabled = false; btn.textContent = '注册账号';
+  if (error) showMsg(error.message, 'error');
+  else showMsg('注册成功！请查收验证邮件后登录', 'success');
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  toast('已退出登录');
+}
+
+function showMsg(msg, type) {
+  const el = document.getElementById('auth-msg');
+  el.textContent = msg; el.className = 'auth-msg ' + type;
+}
+
+// ── HOME ──
+function initHome() {
+  const now = new Date();
+  const h = now.getHours();
+  const greet = h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好';
+  const days = ['日','一','二','三','四','五','六'];
+  document.getElementById('greeting').textContent = greet + (currentUser?.user_metadata?.name ? '，' + currentUser.user_metadata.name : '');
+  document.getElementById('today-date').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 · 星期${days[now.getDay()]}`;
+
+  const initials = (currentUser?.user_metadata?.name || '我').slice(0,1);
+  document.getElementById('avatar-btn').textContent = initials;
+  document.getElementById('profile-avatar').textContent = initials;
+  document.getElementById('profile-name').textContent = currentUser?.user_metadata?.name || '用户';
+  document.getElementById('profile-email').textContent = currentUser?.email || '';
+
+  loadTodayData();
+  loadMeds();
+}
+
+async function loadTodayData() {
+  if (!currentUser) return;
+  const today = new Date().toISOString().slice(0,10);
+
+  const { data: vitals } = await sb.from('vitals').select('*')
+    .eq('user_id', currentUser.id)
+    .gte('recorded_at', today + 'T00:00:00')
+    .order('recorded_at', { ascending: false }).limit(1);
+
+  if (vitals && vitals.length > 0) {
+    const v = vitals[0];
+    if (v.systolic && v.diastolic) {
+      document.getElementById('m-bp').textContent = v.systolic + '/' + v.diastolic;
+      const ok = v.systolic < 130 && v.diastolic < 85;
+      document.getElementById('m-bp-s').textContent = ok ? '● 正常范围' : '● 偏高注意';
+      document.getElementById('m-bp-s').className = 'metric-status ' + (ok ? 'ok' : 'warn');
+    }
+    if (v.blood_sugar) {
+      document.getElementById('m-sugar').textContent = parseFloat(v.blood_sugar).toFixed(1);
+      const ok = v.blood_sugar >= 3.9 && v.blood_sugar <= 6.1;
+      document.getElementById('m-sugar-s').textContent = ok ? '● 正常' : '● 请留意';
+      document.getElementById('m-sugar-s').className = 'metric-status ' + (ok ? 'ok' : 'warn');
+    }
+  }
+
+  const { data: exercises } = await sb.from('exercises').select('*')
+    .eq('user_id', currentUser.id).gte('recorded_at', today + 'T00:00:00');
+  document.getElementById('m-ex').textContent = exercises ? exercises.length : 0;
+
+  const { data: meals } = await sb.from('meals').select('*')
+    .eq('user_id', currentUser.id).gte('recorded_at', today + 'T00:00:00');
+  const totalCal = meals ? meals.reduce((s, m) => s + (m.calories || 0), 0) : 0;
+  document.getElementById('m-cal').textContent = totalCal;
+  if (totalCal > 0) {
+    document.getElementById('m-cal-s').textContent = totalCal < 1200 ? '● 摄入偏少' : totalCal > 2500 ? '● 摄入偏多' : '● 摄入正常';
+    document.getElementById('m-cal-s').className = 'metric-status ' + (totalCal < 1200 || totalCal > 2500 ? 'warn' : 'ok');
+  }
+
+  buildActivity(vitals, exercises, meals);
+}
+
+function buildActivity(vitals, exercises, meals) {
+  const items = [];
+  if (vitals) vitals.forEach(v => items.push({ text: `血压记录：${v.systolic||'?'}/${v.diastolic||'?'} mmHg`, time: fmtTime(v.recorded_at), color: '#1D9E75' }));
+  if (exercises) exercises.forEach(e => items.push({ text: `运动打卡：${e.type} ${e.duration_min||0}分钟`, time: fmtTime(e.recorded_at), color: '#EF9F27' }));
+  if (meals) meals.forEach(m => items.push({ text: `${m.meal_type}记录：${m.description||''} ${m.calories||0}千卡`, time: fmtTime(m.recorded_at), color: '#3B6D11' }));
+  items.sort((a,b) => b.time.localeCompare(a.time));
+  const el = document.getElementById('home-activity');
+  if (items.length === 0) { el.innerHTML = '<div class="empty-state">今天还没有记录</div>'; return; }
+  el.innerHTML = items.slice(0,5).map(i => `<div class="act-item"><div class="act-dot" style="background:${i.color}"></div><div><div class="act-text">${i.text}</div><div class="act-time">${i.time}</div></div></div>`).join('');
+}
+
+async function loadMeds() {
+  if (!currentUser) return;
+  const { data } = await sb.from('medications').select('*').eq('user_id', currentUser.id).order('scheduled_time');
+  const el = document.getElementById('home-meds');
+  const el2 = document.getElementById('meds-list');
+  if (!data || data.length === 0) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3)">暂无用药计划，去用药模块添加</div>';
+    el2.innerHTML = '<div class="empty-state">暂无用药计划</div>';
+    return;
+  }
+  el.innerHTML = data.slice(0,3).map(m => `
+    <div class="med-item">
+      <div class="med-dot" style="background:${m.status==='已服'?'#1D9E75':m.status==='待服'?'#EF9F27':'#E24B4A'}"></div>
+      <div class="med-name">${m.name} ${m.dosage||''}</div>
+      <div class="med-time">${m.scheduled_time ? m.scheduled_time.slice(0,5) : ''}</div>
+      <span class="badge ${m.status==='已服'?'b-ok':m.status==='待服'?'b-warn':'b-miss'}">${m.status}</span>
+    </div>`).join('');
+  el2.innerHTML = data.map(m => `
+    <div class="rec-item">
+      <div class="rec-icon" style="background:#E6F1FB"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#0C447C" stroke-width="1.5"><rect x="5" y="2" width="6" height="12" rx="3"/><line x1="5" y1="8" x2="11" y2="8"/></svg></div>
+      <div class="rec-main"><div class="rec-name">${m.name}</div><div class="rec-detail">${m.dosage||''} · ${m.scheduled_time ? m.scheduled_time.slice(0,5) : ''}</div></div>
+      <div class="rec-right"><span class="badge ${m.status==='已服'?'b-ok':m.status==='待服'?'b-warn':'b-miss'}">${m.status}</span></div>
+    </div>`).join('');
+}
+
+// ── LOAD LISTS ──
+async function loadVitals() {
+  const { data } = await sb.from('vitals').select('*').eq('user_id', currentUser.id).order('recorded_at', { ascending: false }).limit(30);
+  const el = document.getElementById('vitals-list');
+  if (!data || data.length === 0) { el.innerHTML = '<div class="empty-state">暂无指标记录</div>'; return; }
+  el.innerHTML = data.map(v => `
+    <div class="rec-item">
+      <div class="rec-icon" style="background:#E1F5EE"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#0F6E56" stroke-width="1.5"><path d="M2 8l2-3 2 5 2-7 2 5 2-3"/></svg></div>
+      <div class="rec-main">
+        <div class="rec-name">${v.systolic&&v.diastolic ? `血压 ${v.systolic}/${v.diastolic}` : ''}${v.blood_sugar ? ` · 血糖 ${parseFloat(v.blood_sugar).toFixed(1)}` : ''}</div>
+        <div class="rec-detail">${v.heart_rate ? `心率 ${v.heart_rate} bpm` : ''}${v.weight ? ` · 体重 ${v.weight} kg` : ''}</div>
+      </div>
+      <div class="rec-right"><div class="rec-time">${fmtDate(v.recorded_at)}</div></div>
+    </div>`).join('');
+}
+
+async function loadMeals() {
+  const { data } = await sb.from('meals').select('*').eq('user_id', currentUser.id).order('recorded_at', { ascending: false }).limit(30);
+  const el = document.getElementById('meals-list');
+  if (!data || data.length === 0) { el.innerHTML = '<div class="empty-state">暂无饮食记录</div>'; return; }
+  el.innerHTML = data.map(m => `
+    <div class="rec-item">
+      <div class="rec-icon" style="background:#EAF3DE"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#3B6D11" stroke-width="1.5"><circle cx="8" cy="9" r="5"/><path d="M5 4V2M8 3V1M11 4V2"/></svg></div>
+      <div class="rec-main"><div class="rec-name">${m.meal_type}</div><div class="rec-detail">${m.description||''}</div></div>
+      <div class="rec-right"><div class="rec-val" style="color:#3B6D11">${m.calories||0} 千卡</div><div class="rec-time">${fmtDate(m.recorded_at)}</div></div>
+    </div>`).join('');
+}
+
+async function loadExercises() {
+  const { data } = await sb.from('exercises').select('*').eq('user_id', currentUser.id).order('recorded_at', { ascending: false }).limit(30);
+  const el = document.getElementById('exercise-list');
+  if (!data || data.length === 0) { el.innerHTML = '<div class="empty-state">暂无运动记录</div>'; return; }
+  el.innerHTML = data.map(e => `
+    <div class="rec-item">
+      <div class="rec-icon" style="background:#FAEEDA"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#854F0B" stroke-width="1.5"><path d="M3 10h2l2-4 2 6 2-4h2"/></svg></div>
+      <div class="rec-main"><div class="rec-name">${e.type}</div><div class="rec-detail">${e.duration_min||0}分钟${e.distance_km?' · '+e.distance_km+'km':''}</div></div>
+      <div class="rec-right"><div class="rec-val" style="color:#854F0B">${e.calories_burned||0} 千卡</div><div class="rec-time">${fmtDate(e.recorded_at)}</div></div>
+    </div>`).join('');
+}
+
+// ── NAVIGATION ──
+function goPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + (name === 'profile' ? 'profile' : name)).classList.add('active');
+  const navEl = document.getElementById('nav-' + name);
+  if (navEl) navEl.classList.add('active');
+  currentPage = name;
+  if (name === 'home') { initHome(); }
+  else if (name === 'vitals') loadVitals();
+  else if (name === 'meals') loadMeals();
+  else if (name === 'exercise') loadExercises();
+  else if (name === 'meds') loadMeds();
+}
+
+// ── MODALS ──
+function openModal(type) { document.getElementById('modal-' + type).classList.add('show'); }
+function closeModal(type) { document.getElementById('modal-' + type).classList.remove('show'); }
+
+function selType(btn, group) {
+  btn.closest('.type-row').querySelectorAll('.type-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function getSelType(modalId, rowClass) {
+  const sel = document.querySelector('#modal-' + modalId + ' .type-btn.sel');
+  return sel ? sel.textContent : '';
+}
+
+// ── SAVE ──
+async function saveVital() {
+  const data = {
+    user_id: currentUser.id,
+    systolic: parseInt(document.getElementById('v-sys').value) || null,
+    diastolic: parseInt(document.getElementById('v-dia').value) || null,
+    heart_rate: parseInt(document.getElementById('v-hr').value) || null,
+    blood_sugar: parseFloat(document.getElementById('v-sugar').value) || null,
+    weight: parseFloat(document.getElementById('v-weight').value) || null,
+  };
+  if (!data.systolic && !data.blood_sugar && !data.heart_rate && !data.weight) return toast('请至少填写一项指标');
+  const { error } = await sb.from('vitals').insert(data);
+  if (error) return toast('保存失败：' + error.message);
+  closeModal('vitals'); toast('指标记录成功 ✓');
+  ['v-sys','v-dia','v-hr','v-sugar','v-weight'].forEach(id => document.getElementById(id).value = '');
+  if (currentPage === 'vitals') loadVitals(); else initHome();
+}
+
+async function saveMeal() {
+  const desc = document.getElementById('meal-desc').value.trim();
+  const cal = parseInt(document.getElementById('meal-cal').value) || 0;
+  const type = getSelType('meal', 'meal-type');
+  if (!desc) return toast('请填写食物描述');
+  const { error } = await sb.from('meals').insert({ user_id: currentUser.id, meal_type: type, description: desc, calories: cal });
+  if (error) return toast('保存失败：' + error.message);
+  closeModal('meal'); toast('饮食记录成功 ✓');
+  document.getElementById('meal-desc').value = ''; document.getElementById('meal-cal').value = '';
+  if (currentPage === 'meals') loadMeals(); else initHome();
+}
+
+async function saveExercise() {
+  const dur = parseInt(document.getElementById('ex-dur').value) || 0;
+  const kcal = parseInt(document.getElementById('ex-kcal').value) || 0;
+  const dist = parseFloat(document.getElementById('ex-dist').value) || null;
+  const type = getSelType('exercise', 'ex-type');
+  if (!dur) return toast('请填写运动时长');
+  const { error } = await sb.from('exercises').insert({ user_id: currentUser.id, type, duration_min: dur, calories_burned: kcal, distance_km: dist });
+  if (error) return toast('保存失败：' + error.message);
+  closeModal('exercise'); toast('运动打卡成功 ✓');
+  ['ex-dur','ex-kcal','ex-dist'].forEach(id => document.getElementById(id).value = '');
+  if (currentPage === 'exercise') loadExercises(); else initHome();
+}
+
+async function saveMedication() {
+  const name = document.getElementById('med-name').value.trim();
+  const dose = document.getElementById('med-dose').value.trim();
+  const time = document.getElementById('med-time').value;
+  if (!name) return toast('请填写药物名称');
+  const { error } = await sb.from('medications').insert({ user_id: currentUser.id, name, dosage: dose, scheduled_time: time, status: '待服' });
+  if (error) return toast('保存失败：' + error.message);
+  closeModal('medication'); toast('用药计划已添加 ✓');
+  document.getElementById('med-name').value = ''; document.getElementById('med-dose').value = '';
+  loadMeds();
+}
+
+// ── UTILS ──
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function fmtTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// 点击背景关闭 modal
+document.querySelectorAll('.modal-wrap').forEach(w => {
+  w.addEventListener('click', e => { if (e.target === w) w.classList.remove('show'); });
+});
+</script>
+</body>
+</html>
